@@ -2,12 +2,16 @@
 
 **Public Integration Package** for connecting VICIdial call centers with DID Optimizer Pro service.
 
-This is the **standalone public integration package**. The main DID Optimizer application is proprietary software.
+This is the **standalone public integration repository**. The main DID Optimizer application is proprietary software available at https://dids.amdy.io
 
-## 📁 Files Included
+> **📦 Repository**: https://github.com/nikvb/vicidial-integration
+> **🌐 Web Application**: https://dids.amdy.io
+> **📖 Full Documentation**: https://docs.amdy.io
+
+## 📁 Repository Contents
 
 ### Core AGI Script
-- **`vicidial-did-optimizer.agi`** - Production AGI script for real-time DID selection
+- **`agi/vicidial-did-optimizer.agi`** - Production AGI script for real-time DID selection
   - Runs during call flow in Asterisk
   - Reads configuration from `/etc/asterisk/dids.conf`
   - Makes API requests to DID Optimizer for optimal DID selection
@@ -16,132 +20,170 @@ This is the **standalone public integration package**. The main DID Optimizer ap
   - File-based caching for performance
 
 ### Call Results Sync
-- **`AST_DID_optimizer_sync.pl`** - Syncs VICIdial call outcomes to DID Optimizer
+- **`scripts/AST_DID_optimizer_sync.pl`** - Syncs VICIdial call outcomes to DID Optimizer
   - Polls `vicidial_log` table every minute
   - Reports call results (answered, busy, no-answer, etc.)
   - Tracks call duration and disposition
   - Used for AI training and performance analytics
   - Auto-configured from VICIdial database
   - Installs to `/usr/share/astguiclient/` (standard VICIdial location)
-- **`install-call-results-sync.sh`** - One-line installer for call results sync
-  - Downloads and installs sync script to VICIdial directory
-  - Configures cron job (runs every minute)
-  - Sets up logging in `/var/log/astguiclient/`
-  - Verifies dependencies
 
 ### Installation Scripts
-- **`install-agi.sh`** - AGI script installer (run this first)
-  - Checks VICIdial environment
-  - Installs required Perl modules
-  - Downloads and installs AGI script
-  - Sets proper permissions (755 for scripts, 600 for configs)
-  - Creates log directory
-  - Verifies installation
+- **`scripts/install-agi.sh`** - One-command AGI installer
+- **`scripts/install-call-results-sync.sh`** - One-command sync installer
+- **`scripts/install-vicidial-integration.sh`** - Complete installation
 
-### Configuration File
-- **`dids.conf`** - Template configuration file
-  - API credentials and settings
-  - Database configuration (auto-detected from VICIdial)
-  - Geographic routing settings
-  - Performance tuning options
+### Configuration Templates
+- **`config/dids.conf`** - API credentials and settings template
+- **`config/vicidial-dialplan-agi.conf`** - Dialplan integration example
+- **`config/vicidial-dialplan-simple.conf`** - Simple dialplan example
+
+### Documentation
+- **`docs/CENTOS7_INSTALLATION.md`** - CentOS 7 specific instructions
+- **`docs/CENTOS7_QUICKSTART.md`** - Quick start for CentOS 7
 
 ## 🚀 Quick Installation (10-15 Minutes)
 
 ### Method 1: Web-Based Setup (Recommended)
 
-1. **Configure VICIdial API User** (2 minutes)
-   - Log in to VICIdial Admin
-   - Go to **Admin → Users**
-   - Create/modify API user with Level 8+
-   - Enable "View Reports" permission
-   - Go to **Admin → User Groups**
-   - Set **Allowed Campaigns** to exactly **`-ALL`**
+**⚠️ IMPORTANT**: Complete steps 1-3 in the web interface first, then proceed with command-line installation.
 
-2. **Configure in DID Optimizer Web Interface** (2 minutes)
-   - Log in to https://dids.amdy.io
-   - Go to **Settings → VICIdial Integration**
-   - Enter VICIdial hostname, username, password
-   - Click **Test Connection** and **Sync Campaigns**
+#### Step 1: Configure VICIdial API User (2 minutes)
 
-3. **Download Configuration File** (1 minute)
-   - In **Settings → VICIdial Integration**
-   - Click **Download dids.conf**
-   - Upload to VICIdial server: `/etc/asterisk/dids.conf`
+Log in to VICIdial Admin interface:
+
+1. Go to **Admin → Users**
+2. Create or modify API user:
+   - **User Level**: 8 or higher
+   - **User Group**: Default or custom
+   - Enable **"View Reports"** permission
+3. Go to **Admin → User Groups**
+4. Edit the user group
+5. Set **Allowed Campaigns** to exactly: **`-ALL`**
+   - ⚠️ Must be exactly `-ALL` (including the dash)
+   - This grants access to all campaigns
+
+#### Step 2: Connect VICIdial in Web Interface (2 minutes)
+
+1. Log in to **https://dids.amdy.io**
+2. Navigate to **Settings → VICIdial Integration**
+3. Enter VICIdial connection details:
+   - **Server Address**: Your VICIdial hostname or IP
+   - **Username**: API user created in Step 1
+   - **Password**: API user password
+4. Click **Test Connection** button
+5. Once connected, click **Sync Campaigns** button
+6. Verify campaigns appear in the interface
+
+#### Step 3: Download Configuration File (1 minute)
+
+1. In **Settings → VICIdial Integration**, scroll to **"Step 1: Download Configuration"**
+2. Click **Download dids.conf** button
+3. Upload to your VICIdial server:
    ```bash
+   # Upload the file
    scp dids.conf root@your-vicidial-server:/etc/asterisk/dids.conf
+
+   # Set proper permissions (important!)
    sudo chmod 600 /etc/asterisk/dids.conf
+   sudo chown asterisk:asterisk /etc/asterisk/dids.conf
    ```
 
-4. **Install AGI Script** (3 minutes)
-   ```bash
-   cd /tmp
-   wget https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/install-agi.sh
-   chmod +x install-agi.sh
-   sudo ./install-agi.sh
-   ```
+#### Step 4: Install AGI Script (3 minutes)
 
-5. **Generate Modified Dialplan Using Website** (2 minutes)
+On your VICIdial server, run:
 
-   **IMPORTANT: Use the web-based dialplan generator - DO NOT edit files manually!**
+```bash
+cd /tmp
+wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-agi.sh
+chmod +x install-agi.sh
+sudo ./install-agi.sh
+```
 
-   - **Step A**: In VICIdial Admin, go to **Admin → Carriers**
-   - **Step B**: Select your carrier and copy the entire **Dialplan Entry** content
-   - **Step C**: Go to https://dids.amdy.io and navigate to **Settings → VICIdial Integration**
-   - **Step D**: Scroll to **"Step 2: Generate Modified Dialplan"** section
-   - **Step E**: Paste your carrier's dialplan into the text area
-   - **Step F**: Click **Generate Modified Dialplan** button
-   - **Step G**: The generator will automatically insert the DID Optimizer AGI calls at the correct position
-   - **Step H**: Click **Copy** button to copy the generated dialplan
-   - **Step I**: Back in VICIdial Admin, replace your carrier's **Dialplan Entry** with the generated version
-   - **Step J**: Click **Submit** - VICIdial automatically reloads the configuration
+**What it does:**
+- ✅ Checks VICIdial environment
+- ✅ Installs required Perl modules (LWP::UserAgent, JSON, etc.)
+- ✅ Downloads AGI script to `/var/lib/asterisk/agi-bin/`
+- ✅ Sets proper permissions (755)
+- ✅ Creates log directory
+- ✅ Verifies installation
 
-   **Why use the web generator?**
-   - Automatically inserts AGI calls at the correct position
-   - Preserves all existing VICIdial functionality
-   - Handles different dialplan patterns correctly
-   - No risk of syntax errors
-   - Includes proper variable passing
+#### Step 5: Generate Modified Dialplan (2 minutes)
 
-6. **Test Integration** (2 minutes)
-   ```bash
-   # Make a test call
-   tail -f /var/log/astguiclient/did-optimizer.log
-   ```
-   - Check DID Optimizer dashboard for call records
+**⚠️ CRITICAL**: Use the web-based dialplan generator - **DO NOT edit dialplan files manually!**
 
-7. **Install Call Results Sync (Optional - Recommended)** (2 minutes)
+1. In **VICIdial Admin**, go to **Admin → Carriers**
+2. Select your carrier
+3. **Copy the entire Dialplan Entry** content
+4. Go to **https://dids.amdy.io** → **Settings → VICIdial Integration**
+5. Scroll to **"Step 2: Generate Modified Dialplan"**
+6. **Paste** your carrier's dialplan into the text area
+7. Click **Generate Modified Dialplan** button
+8. The generator automatically inserts AGI calls at the correct position
+9. Click **Copy** button to copy generated dialplan
+10. Return to **VICIdial Admin → Carriers**
+11. **Replace** your carrier's Dialplan Entry with generated version
+12. Click **Submit**
 
-   **IMPORTANT: This syncs VICIdial call outcomes back to DID Optimizer for AI training and performance analytics.**
+**Why use the generator?**
+- ✅ Automatically inserts AGI calls at correct position
+- ✅ Preserves all existing VICIdial functionality
+- ✅ Handles different dialplan patterns
+- ✅ No syntax errors
+- ✅ Includes proper variable passing
 
-   One-line installer:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/install-call-results-sync.sh | sudo bash
-   ```
+**VICIdial automatically reloads the dialplan** - no Asterisk restart needed!
 
-   **What it does**:
-   - Installs Perl dependencies (DBI, DBD::mysql, LWP::UserAgent, JSON)
-   - Downloads and installs `AST_DID_optimizer_sync.pl` to `/usr/share/astguiclient/`
-   - Creates cron job to sync call results every minute
-   - Automatically reads config from `/etc/asterisk/dids.conf`
-   - Logs to `/var/log/astguiclient/did-optimizer-sync.log`
+#### Step 6: Test Integration (2 minutes)
 
-   **Monitor sync**:
-   ```bash
-   # View real-time sync logs
-   tail -f /var/log/astguiclient/did-optimizer-sync.log
+```bash
+# Monitor logs in real-time
+tail -f /var/log/astguiclient/did-optimizer.log
 
-   # Check recent syncs
-   grep 'Summary:' /var/log/astguiclient/did-optimizer-sync.log | tail -5
-   ```
+# Make a test call through VICIdial
+# You should see logs showing DID selection
+
+# Verify in dashboard
+# Go to https://dids.amdy.io dashboard
+# Check for call records appearing
+```
+
+#### Step 7: Install Call Results Sync (Optional - Recommended)
+
+**This syncs VICIdial call outcomes back to DID Optimizer for AI training and performance analytics.**
+
+One-line installer:
+```bash
+curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-call-results-sync.sh | sudo bash
+```
+
+**What it does:**
+- Installs Perl dependencies (DBI, DBD::mysql, LWP::UserAgent, JSON)
+- Downloads sync script to `/usr/share/astguiclient/`
+- Creates cron job (runs every minute)
+- Reads config from `/etc/asterisk/dids.conf`
+- Logs to `/var/log/astguiclient/did-optimizer-sync.log`
+
+**Monitor sync activity:**
+```bash
+# View real-time sync logs
+tail -f /var/log/astguiclient/did-optimizer-sync.log
+
+# Check recent syncs
+grep 'Summary:' /var/log/astguiclient/did-optimizer-sync.log | tail -5
+
+# Check for errors
+grep 'ERROR\|Failed' /var/log/astguiclient/did-optimizer-sync.log
+```
 
 ### Method 2: Command Line Installation (Advanced)
 
-For advanced users who prefer command-line tools:
+For advanced users who prefer command-line configuration:
 
 1. **Install AGI Script**
    ```bash
    cd /tmp
-   wget https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/install-agi.sh
+   wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-agi.sh
    chmod +x install-agi.sh
    sudo ./install-agi.sh
    ```
@@ -149,18 +191,19 @@ For advanced users who prefer command-line tools:
 2. **Get API Key from Website**
    - Log in to https://dids.amdy.io
    - Go to **Settings → API Keys**
-   - Create or copy your API key
+   - Click **Create API Key**
+   - Copy the generated key (save it - shown only once!)
 
 3. **Configure dids.conf**
    ```bash
    sudo nano /etc/asterisk/dids.conf
    ```
 
-   Update these required settings:
+   Update required settings:
    ```ini
    [general]
    api_base_url=https://dids.amdy.io
-   api_key=YOUR_API_KEY_HERE
+   api_key=did_YOUR_ACTUAL_API_KEY_HERE
    fallback_did=+18005551234
 
    # Database settings (usually auto-detected from /etc/astguiclient.conf)
@@ -172,14 +215,14 @@ For advanced users who prefer command-line tools:
 
 4. **Generate Dialplan Using Website**
 
-   **IMPORTANT: Even for command-line installation, use the web-based dialplan generator!**
+   Even for command-line installation, **use the web-based dialplan generator**!
 
    - Go to https://dids.amdy.io → **Settings → VICIdial Integration**
    - Copy your carrier's dialplan from **VICIdial Admin → Carriers**
-   - Paste into the dialplan generator
+   - Paste into dialplan generator
    - Click **Generate Modified Dialplan**
-   - Copy the generated dialplan back to VICIdial Admin
-   - Click **Submit** in VICIdial Admin
+   - Copy generated dialplan back to VICIdial Admin
+   - Click **Submit**
 
    **DO NOT manually edit dialplan files** - the generator ensures correct integration.
 
@@ -191,7 +234,7 @@ For advanced users who prefer command-line tools:
 [general]
 # API Configuration (REQUIRED)
 api_base_url=https://dids.amdy.io
-api_key=YOUR_API_KEY_HERE
+api_key=did_YOUR_API_KEY_HERE
 api_timeout=10
 max_retries=3
 
@@ -230,14 +273,14 @@ enable_area_code_detection=1
    - Customer phone number
    - Campaign ID
    - Agent ID (if available)
-   - Customer state/ZIP (if available from VICIdial database)
+   - Customer state/ZIP (from VICIdial database)
 5. **Optimal DID selected** based on:
    - Geographic proximity to customer
    - Rotation rules and daily limits
    - Reputation scores
    - Campaign-specific settings
-6. **Caller ID set** to the selected DID via `${OPTIMIZER_DID}` variable
-7. **Call proceeds** with optimized DID
+6. **Caller ID set** to selected DID via `${OPTIMIZER_DID}` variable
+7. **Call proceeds** with optimized caller ID
 8. **Call tracked** in DID Optimizer dashboard
 
 ### Data Used for DID Selection
@@ -248,6 +291,7 @@ enable_area_code_detection=1
 - **Customer Location**: State and ZIP code (from VICIdial database)
 - **Time of Day**: For pattern analysis
 - **Call History**: Previous outcomes and performance
+- **DID Reputation**: Spam scores and carrier filtering status
 
 ## 🧪 Testing & Verification
 
@@ -267,20 +311,20 @@ tail -f /var/log/astguiclient/did-optimizer.log
 # Search for errors
 grep ERROR /var/log/astguiclient/did-optimizer.log
 
-# View recent selections
+# View recent DID selections
 grep "Selected DID" /var/log/astguiclient/did-optimizer.log | tail -20
 ```
 
 ### Test API Connection
 ```bash
-curl -H "x-api-key: YOUR_API_KEY" https://dids.amdy.io/api/v1/health
+curl -H "x-api-key: did_YOUR_API_KEY" https://dids.amdy.io/api/v1/health
 ```
 
 ### Verify in VICIdial
 1. Make a test call through VICIdial
 2. Check Asterisk logs: `asterisk -rx "core show channels verbose"`
 3. Verify caller ID shows optimized DID
-4. Check DID Optimizer dashboard for call record
+4. Check DID Optimizer dashboard for call record at https://dids.amdy.io
 
 ## 🔥 Troubleshooting
 
@@ -329,20 +373,19 @@ sudo iptables -L OUTPUT -n | grep 443
 4. Geographic filters too restrictive
 
 **Check in DID Optimizer:**
-- Go to **DID Management** page
-- Verify DIDs are active and have good reputation
+- Go to **DID Management** page at https://dids.amdy.io
+- Verify DIDs are active and have good reputation scores
 - Check usage statistics
 
-### Configuration File Not Found
+### Configuration File Issues
 
 ```bash
-# Verify file exists
+# Verify file exists with correct permissions
 ls -la /etc/asterisk/dids.conf
-
 # Should show: -rw------- (600 permissions)
 
 # Re-download from web interface if missing
-# Or copy from vicidial-integration/dids.conf
+# Or get template: https://github.com/nikvb/vicidial-integration/blob/main/config/dids.conf
 ```
 
 ### Database Connection Issues
@@ -357,7 +400,7 @@ cat /etc/astguiclient.conf | grep VARDB
 mysql -h localhost -u cron -p1234 asterisk -e "SELECT COUNT(*) FROM vicidial_list LIMIT 1"
 ```
 
-### Call Results Sync Not Working
+### Call Results Sync Issues
 
 **Check if sync is installed:**
 ```bash
@@ -372,33 +415,18 @@ tail -f /var/log/astguiclient/did-optimizer-sync.log
 
 # Check recent syncs
 grep 'Summary:' /var/log/astguiclient/did-optimizer-sync.log | tail -10
-
-# Check for errors
-grep 'ERROR\|Failed\|failed' /var/log/astguiclient/did-optimizer-sync.log
-```
-
-**Verify API configuration:**
-```bash
-grep 'api_key' /etc/asterisk/dids.conf
-# Should NOT show: api_key=YOUR_API_KEY_HERE
 ```
 
 **Manual test:**
 ```bash
-# Run sync manually to see output
 sudo perl /usr/share/astguiclient/AST_DID_optimizer_sync.pl
 ```
 
-**Common issues:**
-- API key not configured in `/etc/asterisk/dids.conf`
-- VICIdial database credentials incorrect
-- Perl modules missing (DBI, DBD::mysql, LWP::UserAgent, JSON)
-- Network connectivity to DID Optimizer API
-
 ## 📝 File Locations
 
-After installation, files will be located at:
+After installation:
 
+**Core Files:**
 - **AGI Script**: `/var/lib/asterisk/agi-bin/vicidial-did-optimizer.agi`
 - **Configuration**: `/etc/asterisk/dids.conf`
 - **Logs**: `/var/log/astguiclient/did-optimizer.log`
@@ -414,64 +442,54 @@ After installation, files will be located at:
 
 Installation complete when:
 
+**Web Interface Setup:**
 - [ ] VICIdial API user created (level 8+)
 - [ ] Allowed Campaigns set to `-ALL`
 - [ ] VICIdial connection tested in web interface
 - [ ] Campaigns synced from VICIdial
-- [ ] dids.conf downloaded and uploaded to `/etc/asterisk/dids.conf`
+- [ ] dids.conf downloaded from web interface
+
+**Server Installation:**
+- [ ] dids.conf uploaded to `/etc/asterisk/dids.conf`
 - [ ] dids.conf permissions set to 600
 - [ ] AGI script installed at `/var/lib/asterisk/agi-bin/vicidial-did-optimizer.agi`
 - [ ] AGI script has 755 permissions
-- [ ] Perl dependencies installed (LWP::UserAgent, JSON, etc.)
-- [ ] Dialplan generated and updated in VICIdial Carriers
+- [ ] Perl dependencies installed successfully
+
+**Dialplan Integration:**
+- [ ] Dialplan generated using web interface
+- [ ] Generated dialplan applied in VICIdial Carriers
 - [ ] Test call completed successfully
 - [ ] Logs showing DID selection activity
-- [ ] Dashboard showing call records
 
-**Optional (but recommended):**
-- [ ] Call results sync installed (`install-call-results-sync.sh`)
-- [ ] Sync script located at `/usr/share/astguiclient/AST_DID_optimizer_sync.pl`
-- [ ] Cron job running every minute
-- [ ] Sync logs showing successful uploads (`/var/log/astguiclient/did-optimizer-sync.log`)
+**Verification:**
+- [ ] Dashboard showing call records at https://dids.amdy.io
+- [ ] Caller ID showing optimized DIDs on test calls
 
-## 🎯 Advanced Configuration
+**Optional (Recommended):**
+- [ ] Call results sync installed
+- [ ] Sync cron job running every minute
+- [ ] Sync logs showing successful uploads
 
-### Custom API Timeout
-```ini
-[general]
-api_timeout=15          # Increase for slow networks
-max_retries=5           # More retries for reliability
-```
+## 📞 Support & Documentation
 
-### Geographic Routing
-```ini
-[general]
-enable_geographic_routing=1
-enable_state_fallback=1
-max_distance_miles=500
-```
+- **📖 Full Documentation**: https://docs.amdy.io
+- **🌐 Web Application**: https://dids.amdy.io
+- **💻 GitHub Repository**: https://github.com/nikvb/vicidial-integration
+- **🐛 Report Issues**: https://github.com/nikvb/vicidial-integration/issues
+- **📧 Email Support**: support@amdy.io
 
-### Usage Limits
-```ini
-[general]
-daily_usage_limit=200   # Calls per DID per day
-```
+## 📄 License
 
-### Debug Logging
-```ini
-[general]
-debug=1                 # Verbose logging
-```
+This integration package is open source and available for use with the DID Optimizer Pro service.
 
-## 📞 Support
-
-- **Documentation**: Full integration guide at https://github.com/nikvb/vicidial-did-optimizer/blob/main/QUICK_SETUP_GUIDE.md
-- **Web Interface**: https://dids.amdy.io
-- **GitHub Issues**: https://github.com/nikvb/vicidial-did-optimizer/issues
-- **Support Email**: support@amdy.io
+The main DID Optimizer application is proprietary software. For pricing and access:
+- Visit: https://dids.amdy.io
+- Sign up for a free trial
+- Plans start at $99/month
 
 ---
 
-**Total Installation Time**: 10-15 minutes with web-based setup
+**Installation Time**: 10-15 minutes with web-based setup
 
-Your VICIdial system will automatically optimize caller ID selection for improved answer rates and call performance!
+Your VICIdial system will automatically optimize caller ID selection for improved answer rates and call performance! 🚀
