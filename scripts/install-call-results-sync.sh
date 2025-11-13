@@ -162,12 +162,12 @@ download_script() {
 
     # Download the Perl script
     if command -v curl &> /dev/null; then
-        curl -fsSL "$REPO_BASE/AST_DID_optimizer_sync.pl" -o "$SCRIPT_PATH" || {
+        curl -fsSL "$REPO_BASE/scripts/AST_DID_optimizer_sync.pl" -o "$SCRIPT_PATH" || {
             print_error "Failed to download script"
             return 1
         }
     elif command -v wget &> /dev/null; then
-        wget -q "$REPO_BASE/AST_DID_optimizer_sync.pl" -O "$SCRIPT_PATH" || {
+        wget -q "$REPO_BASE/scripts/AST_DID_optimizer_sync.pl" -O "$SCRIPT_PATH" || {
             print_error "Failed to download script"
             return 1
         }
