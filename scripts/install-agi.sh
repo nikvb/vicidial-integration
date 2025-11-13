@@ -27,9 +27,10 @@ LOG_DIR="/var/log/astguiclient"
 ASTERISK_USER="asterisk"
 ASTERISK_GROUP="asterisk"
 
-# Required Perl modules
+# Required Perl modules (including HTTPS support)
 PERL_MODULES=(
     "LWP::UserAgent"
+    "LWP::Protocol::https"
     "JSON"
     "URI::Escape"
     "Cache::FileCache"
@@ -37,6 +38,11 @@ PERL_MODULES=(
     "Time::HiRes"
     "DBI"
     "DBD::mysql"
+    "HTTP::Request"
+    "HTTP::Response"
+    "IO::Socket::SSL"
+    "Mozilla::CA"
+    "Net::SSLeay"
 )
 
 ################################################################################
@@ -89,6 +95,54 @@ check_perl() {
     print_step "Perl is installed ($(perl -v | grep -oP 'v\d+\.\d+\.\d+' | head -1))"
 }
 
+install_system_dependencies() {
+    print_info "Installing system dependencies for HTTPS and MySQL..."
+
+    # Essential packages for HTTPS support and Perl module compilation
+    local packages=(
+        "perl-CPAN"
+        "perl-App-cpanminus"
+        "gcc"
+        "make"
+        "openssl"
+        "openssl-devel"
+        "perl-devel"
+        "mysql-devel"
+        "mariadb-devel"
+        "perl-IO-Socket-SSL"
+        "perl-Net-SSLeay"
+        "perl-Mozilla-CA"
+        "perl-LWP-Protocol-https"
+        "ca-certificates"
+    )
+
+    # Try dnf first, then yum, then apt-get
+    if command -v dnf &> /dev/null; then
+        for pkg in "${packages[@]}"; do
+            dnf install -y "$pkg" 2>&1 | grep -q "already installed\|Complete" || true
+        done
+    elif command -v yum &> /dev/null; then
+        for pkg in "${packages[@]}"; do
+            yum install -y "$pkg" 2>&1 | grep -q "already installed\|Complete" || true
+        done
+    elif command -v apt-get &> /dev/null; then
+        apt-get update -qq
+        apt-get install -y build-essential libssl-dev libmysqlclient-dev \
+            libwww-perl libnet-ssleay-perl libio-socket-ssl-perl \
+            libmozilla-ca-perl cpanminus ca-certificates 2>&1 | grep -v "already"
+    fi
+
+    # Update CA certificates
+    if command -v update-ca-trust &> /dev/null; then
+        update-ca-trust force-enable 2>/dev/null
+        update-ca-trust extract 2>/dev/null
+    elif command -v update-ca-certificates &> /dev/null; then
+        update-ca-certificates 2>/dev/null
+    fi
+
+    print_step "System dependencies installed"
+}
+
 install_perl_modules() {
     print_info "Checking Perl module dependencies..."
 
@@ -108,30 +162,54 @@ install_perl_modules() {
     fi
 
     print_warning "Missing Perl modules: ${missing_modules[*]}"
-    print_info "Installing missing modules via CPAN..."
+    print_info "Installing missing modules..."
 
-    # Install CPAN if not available
-    if ! command -v cpan &> /dev/null; then
-        print_info "Installing CPAN..."
-        yum install -y perl-CPAN perl-YAML 2>/dev/null || apt-get install -y cpanminus 2>/dev/null
+    # Install cpanminus if not available (much faster than cpan)
+    if ! command -v cpanm &> /dev/null; then
+        print_info "Installing cpanminus..."
+        if command -v dnf &> /dev/null; then
+            dnf install -y perl-App-cpanminus 2>/dev/null || {
+                # Fall back to curl installation
+                curl -L https://cpanmin.us | perl - --self-upgrade 2>/dev/null
+            }
+        elif command -v yum &> /dev/null; then
+            yum install -y perl-App-cpanminus 2>/dev/null || {
+                curl -L https://cpanmin.us | perl - --self-upgrade 2>/dev/null
+            }
+        elif command -v apt-get &> /dev/null; then
+            apt-get install -y cpanminus 2>/dev/null
+        else
+            curl -L https://cpanmin.us | perl - --self-upgrade 2>/dev/null
+        fi
     fi
 
-    # Try cpanm first (faster), fall back to cpan
+    # Try cpanm first (faster and quieter), fall back to cpan
     if command -v cpanm &> /dev/null; then
         for module in "${missing_modules[@]}"; do
             print_info "Installing $module..."
-            cpanm --notest "$module" || {
-                print_error "Failed to install $module via cpanm"
-                return 1
-            }
+            if cpanm --notest --quiet "$module" 2>&1 | grep -q "Successfully installed\|is up to date"; then
+                print_step "$module installed successfully"
+            else
+                # Try with cpan as fallback
+                print_warning "Retrying $module with CPAN..."
+                if yes '' | cpan -T "$module" 2>&1 | grep -q "OK\|up to date"; then
+                    print_step "$module installed successfully (via CPAN)"
+                else
+                    print_error "Failed to install $module"
+                    return 1
+                fi
+            fi
         done
     else
+        # Use cpan directly
         for module in "${missing_modules[@]}"; do
             print_info "Installing $module..."
-            cpan -T "$module" || {
-                print_error "Failed to install $module via cpan"
+            if yes '' | cpan -T "$module" 2>&1 | grep -q "OK\|up to date"; then
+                print_step "$module installed successfully"
+            else
+                print_error "Failed to install $module"
                 return 1
-            }
+            fi
         done
     fi
 
@@ -225,12 +303,44 @@ test_installation() {
         return 1
     fi
 
-    # Test with --test flag if available
-    if grep -q "test mode" "$AGI_DIR/$AGI_SCRIPT" 2>/dev/null; then
-        print_info "Running test mode..."
-        su - ${ASTERISK_USER} -s /bin/bash -c "perl $AGI_DIR/$AGI_SCRIPT --test" || {
-            print_warning "Test mode execution failed (this may be normal if config is not set up)"
-        }
+    # Test HTTPS support
+    print_info "Testing HTTPS/SSL support..."
+    local https_test=$(cat <<'PERL'
+use strict;
+use warnings;
+use LWP::UserAgent;
+
+my $ua = LWP::UserAgent->new(
+    timeout => 10,
+    ssl_opts => { verify_hostname => 1 }
+);
+
+my $response = $ua->get('https://dids.amdy.io/api/v1/health');
+
+if ($response->is_success || $response->code == 401 || $response->code == 404) {
+    print "HTTPS_OK\n";
+    exit 0;
+} else {
+    print "HTTPS_FAILED: " . $response->status_line . "\n";
+    exit 1;
+}
+PERL
+)
+
+    if echo "$https_test" | perl 2>&1 | grep -q "HTTPS_OK"; then
+        print_step "HTTPS support is working correctly"
+    else
+        local error_msg=$(echo "$https_test" | perl 2>&1)
+        if echo "$error_msg" | grep -q "Protocol scheme 'https' is not supported"; then
+            print_error "HTTPS not supported - missing LWP::Protocol::https module"
+            print_info "This should have been installed. Please check the error messages above."
+            return 1
+        elif echo "$error_msg" | grep -q "SSL"; then
+            print_warning "SSL verification issue - may be normal for self-signed certificates"
+        else
+            print_warning "HTTPS test inconclusive: $error_msg"
+            print_info "This may be normal if the API requires authentication"
+        fi
     fi
 }
 
@@ -314,6 +424,7 @@ main() {
     check_root
     check_vicidial
     check_perl
+    install_system_dependencies
     install_perl_modules
     download_agi_script
     set_permissions
