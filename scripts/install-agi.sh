@@ -99,7 +99,8 @@ install_system_dependencies() {
     print_info "Installing system dependencies for HTTPS and MySQL..."
 
     # Essential packages for HTTPS support and Perl module compilation
-    local packages=(
+    # Split into groups to avoid conflicts
+    local core_packages=(
         "perl-CPAN"
         "perl-App-cpanminus"
         "gcc"
@@ -107,8 +108,6 @@ install_system_dependencies() {
         "openssl"
         "openssl-devel"
         "perl-devel"
-        "mysql-devel"
-        "mariadb-devel"
         "perl-IO-Socket-SSL"
         "perl-Net-SSLeay"
         "perl-Mozilla-CA"
@@ -118,13 +117,23 @@ install_system_dependencies() {
 
     # Try dnf first, then yum, then apt-get
     if command -v dnf &> /dev/null; then
-        for pkg in "${packages[@]}"; do
-            dnf install -y "$pkg" 2>&1 | grep -q "already installed\|Complete" || true
-        done
+        # Install core packages with skip-broken
+        dnf install -y --skip-broken "${core_packages[@]}" 2>&1 | grep -v "Nothing to do" || true
+
+        # Try mysql-devel first, fall back to mariadb-devel if it fails
+        if ! dnf install -y mysql-devel 2>/dev/null; then
+            dnf install -y mariadb-devel 2>/dev/null || true
+        fi
     elif command -v yum &> /dev/null; then
-        for pkg in "${packages[@]}"; do
+        # Install core packages
+        for pkg in "${core_packages[@]}"; do
             yum install -y "$pkg" 2>&1 | grep -q "already installed\|Complete" || true
         done
+
+        # Try mysql-devel first, fall back to mariadb-devel
+        if ! yum install -y mysql-devel 2>/dev/null; then
+            yum install -y mariadb-devel 2>/dev/null || true
+        fi
     elif command -v apt-get &> /dev/null; then
         apt-get update -qq
         apt-get install -y build-essential libssl-dev libmysqlclient-dev \
@@ -134,10 +143,9 @@ install_system_dependencies() {
 
     # Update CA certificates
     if command -v update-ca-trust &> /dev/null; then
-        update-ca-trust force-enable 2>/dev/null
-        update-ca-trust extract 2>/dev/null
+        update-ca-trust extract 2>/dev/null || true
     elif command -v update-ca-certificates &> /dev/null; then
-        update-ca-certificates 2>/dev/null
+        update-ca-certificates 2>/dev/null || true
     fi
 
     print_step "System dependencies installed"
