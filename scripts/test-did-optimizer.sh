@@ -74,7 +74,7 @@ echo ""
 
 # Test 4: Check required Perl modules
 echo "4️⃣  Checking Perl modules..."
-MODULES=("LWP::UserAgent" "JSON" "Config::Simple" "URI::Escape")
+MODULES=("LWP::UserAgent" "JSON" "URI::Escape" "DBI" "DBD::mysql" "Asterisk::AGI" "Time::HiRes" "Cache::FileCache")
 ALL_MODULES_OK=true
 
 for module in "${MODULES[@]}"; do

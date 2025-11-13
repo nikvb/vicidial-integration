@@ -35,6 +35,8 @@ PERL_MODULES=(
     "Cache::FileCache"
     "Asterisk::AGI"
     "Time::HiRes"
+    "DBI"
+    "DBD::mysql"
 )
 
 ################################################################################
