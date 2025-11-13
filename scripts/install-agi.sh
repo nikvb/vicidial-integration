@@ -27,7 +27,7 @@ LOG_DIR="/var/log/astguiclient"
 ASTERISK_USER="asterisk"
 ASTERISK_GROUP="asterisk"
 
-# Required Perl modules (including HTTPS support)
+# Required Perl modules (HTTPS support only - VICIdial has DBI/MySQL already)
 PERL_MODULES=(
     "LWP::UserAgent"
     "LWP::Protocol::https"
@@ -36,8 +36,6 @@ PERL_MODULES=(
     "Cache::FileCache"
     "Asterisk::AGI"
     "Time::HiRes"
-    "DBI"
-    "DBD::mysql"
     "HTTP::Request"
     "HTTP::Response"
     "IO::Socket::SSL"
@@ -96,11 +94,11 @@ check_perl() {
 }
 
 install_system_dependencies() {
-    print_info "Installing system dependencies for HTTPS and MySQL..."
+    print_info "Installing system dependencies for HTTPS/SSL support..."
 
     # Essential packages for HTTPS support and Perl module compilation
-    # Split into groups to avoid conflicts
-    local core_packages=(
+    # NO MySQL dependencies - VICIdial already has those installed
+    local packages=(
         "perl-CPAN"
         "perl-App-cpanminus"
         "gcc"
@@ -117,26 +115,16 @@ install_system_dependencies() {
 
     # Try dnf first, then yum, then apt-get
     if command -v dnf &> /dev/null; then
-        # Install core packages with skip-broken
-        dnf install -y --skip-broken "${core_packages[@]}" 2>&1 | grep -v "Nothing to do" || true
-
-        # Try mysql-devel first, fall back to mariadb-devel if it fails
-        if ! dnf install -y mysql-devel 2>/dev/null; then
-            dnf install -y mariadb-devel 2>/dev/null || true
-        fi
+        # Install packages with skip-broken to avoid conflicts
+        dnf install -y --skip-broken "${packages[@]}" 2>&1 | grep -v "Nothing to do" || true
     elif command -v yum &> /dev/null; then
-        # Install core packages
-        for pkg in "${core_packages[@]}"; do
+        # Install packages one by one for yum
+        for pkg in "${packages[@]}"; do
             yum install -y "$pkg" 2>&1 | grep -q "already installed\|Complete" || true
         done
-
-        # Try mysql-devel first, fall back to mariadb-devel
-        if ! yum install -y mysql-devel 2>/dev/null; then
-            yum install -y mariadb-devel 2>/dev/null || true
-        fi
     elif command -v apt-get &> /dev/null; then
         apt-get update -qq
-        apt-get install -y build-essential libssl-dev libmysqlclient-dev \
+        apt-get install -y build-essential libssl-dev \
             libwww-perl libnet-ssleay-perl libio-socket-ssl-perl \
             libmozilla-ca-perl cpanminus ca-certificates 2>&1 | grep -v "already"
     fi
