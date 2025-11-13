@@ -360,6 +360,9 @@ download_test_script() {
             echo ""
             bash "$TEST_SCRIPT"
             echo ""
+
+            # Offer advanced API testing if basic test completed
+            download_advanced_test_script
         else
             print_info "You can run the test later with: bash $TEST_SCRIPT"
         fi
@@ -368,6 +371,43 @@ download_test_script() {
         print_info "You can download it manually:"
         print_info "wget $TEST_URL"
         print_info "bash test-did-optimizer.sh"
+    fi
+}
+
+download_advanced_test_script() {
+    print_info "Advanced API testing script available for detailed debugging..."
+
+    API_TEST_SCRIPT="/tmp/test-did-optimizer-api.pl"
+    API_TEST_URL="https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/test-did-optimizer-api.pl"
+
+    echo ""
+    read -p "Would you like to run the advanced API test with full debugging? (y/n): " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_info "Downloading advanced API test script..."
+
+        if wget -q -O "$API_TEST_SCRIPT" "$API_TEST_URL" 2>/dev/null; then
+            chmod +x "$API_TEST_SCRIPT"
+            print_step "Advanced test script downloaded to $API_TEST_SCRIPT"
+
+            echo ""
+            print_info "Running advanced API test with --debug mode..."
+            echo ""
+            perl "$API_TEST_SCRIPT" --debug
+            echo ""
+        else
+            print_warning "Failed to download advanced test script"
+            print_info "You can download it manually:"
+            print_info "wget -O test-did-optimizer-api.pl $API_TEST_URL"
+            print_info "chmod +x test-did-optimizer-api.pl"
+            print_info "./test-did-optimizer-api.pl --debug"
+        fi
+    else
+        print_info "You can run the advanced test later:"
+        print_info "  wget -O test-did-optimizer-api.pl $API_TEST_URL"
+        print_info "  chmod +x test-did-optimizer-api.pl"
+        print_info "  ./test-did-optimizer-api.pl --debug"
     fi
 }
 
