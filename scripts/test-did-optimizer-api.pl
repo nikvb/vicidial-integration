@@ -16,7 +16,7 @@
 # - Connection diagnostics and troubleshooting
 #
 # Usage:
-#   sudo -u asterisk ./test-did-optimizer-api.pl
+#   ./test-did-optimizer-api.pl              # Basic test
 #   ./test-did-optimizer-api.pl --verbose    # Extra verbose output
 #   ./test-did-optimizer-api.pl --config-only  # Only test config loading
 #   ./test-did-optimizer-api.pl --debug      # MAXIMUM debug output
@@ -174,7 +174,7 @@ sub load_did_optimizer_config {
 
     if (! -r $config_file) {
         print "  ❌ Config file not readable: $config_file\n";
-        print "     Try: sudo -u asterisk $0\n";
+        print "     Try: sudo $0\n";
         return;
     }
 
@@ -545,17 +545,21 @@ sub test_did_selection {
                 if ($data && ref($data) eq 'HASH') {
                     debug_print('DEBUG', "Response structure: " . Dumper($data)) if $debug;
 
-                    my $selected_did = $data->{phoneNumber};
+                    # Parse DID from response: {success: true, did: {number: '...', location: {...}}}
+                    my $did_obj = $data->{did};
+                    my $selected_did = $did_obj ? $did_obj->{number} : undef;
 
                     if ($selected_did) {
                         $did_usage{$selected_did}++;
 
                         print "      ✅ Selected DID: $selected_did\n";
+                        print "      Is fallback: " . ($did_obj->{is_fallback} ? 'yes' : 'no') . "\n" if $verbose || $debug;
 
                         if ($verbose || $debug) {
-                            print "      Carrier: " . ($data->{carrier} // 'unknown') . "\n";
-                            print "      State: " . ($data->{state} // 'unknown') . "\n";
-                            print "      Area Code: " . ($data->{areaCode} // 'unknown') . "\n";
+                            my $location = $did_obj->{location} // {};
+                            print "      State: " . ($location->{state} // 'unknown') . "\n";
+                            print "      City: " . ($location->{city} // 'unknown') . "\n";
+                            print "      Area Code: " . ($location->{areaCode} // 'unknown') . "\n";
                         }
 
                         debug_print('DEBUG', "DID usage count for $selected_did: " . $did_usage{$selected_did});
@@ -667,17 +671,17 @@ sub print_help {
     print "  --config-only Only test configuration loading\n";
     print "  --help        Show this help message\n\n";
     print "Examples:\n";
-    print "  sudo -u asterisk $0                    # Basic test\n";
-    print "  sudo -u asterisk $0 --verbose          # Detailed test\n";
-    print "  sudo -u asterisk $0 --debug            # Maximum debugging\n";
-    print "  $0 --config-only                       # Just check config\n\n";
+    print "  $0                    # Basic test\n";
+    print "  $0 --verbose          # Detailed test\n";
+    print "  $0 --debug            # Maximum debugging\n";
+    print "  $0 --trace            # Full HTTP tracing\n";
+    print "  $0 --config-only      # Just check config\n\n";
 }
 
-# Run as asterisk user reminder
+# Check if running as root
 unless ($config_only) {
-    my $current_user = getpwuid($<);
-    if ($current_user ne 'asterisk' && $< != 0) {
-        print "\n⚠️  NOTE: For full testing, run as asterisk user:\n";
-        print "   sudo -u asterisk $0\n\n";
+    if ($< != 0) {
+        print "\n⚠️  NOTE: Some tests may require root access to read VICIdial configuration files.\n";
+        print "   If you encounter permission errors, try: sudo $0\n\n";
     }
 }
