@@ -175,9 +175,9 @@ set_permissions() {
 
     # Make AGI script executable
     chmod 755 "$AGI_DIR/$AGI_SCRIPT"
-    chown ${ASTERISK_USER}:${ASTERISK_GROUP} "$AGI_DIR/$AGI_SCRIPT"
+    # Note: VICIdial runs as root, no need to change ownership
 
-    print_step "Permissions set (755, ${ASTERISK_USER}:${ASTERISK_GROUP})"
+    print_step "Permissions set (755)"
 }
 
 create_log_directory() {
@@ -186,8 +186,8 @@ create_log_directory() {
         mkdir -p "$LOG_DIR"
     fi
 
-    chown ${ASTERISK_USER}:${ASTERISK_GROUP} "$LOG_DIR"
     chmod 755 "$LOG_DIR"
+    # Note: VICIdial runs as root, no need to change ownership
 
     print_step "Log directory ready: $LOG_DIR"
 }
@@ -197,7 +197,7 @@ verify_config() {
         print_warning "Configuration file not found: $CONFIG_FILE"
         print_info "Please download dids.conf from the DID Optimizer web interface"
         print_info "and place it at: $CONFIG_FILE"
-        print_info "Then run: sudo chmod 600 $CONFIG_FILE && sudo chown ${ASTERISK_USER}:${ASTERISK_GROUP} $CONFIG_FILE"
+        print_info "Then run: sudo chmod 600 $CONFIG_FILE"
     else
         print_step "Configuration file exists: $CONFIG_FILE"
 
@@ -209,8 +209,7 @@ verify_config() {
             print_step "Corrected permissions to 600"
         fi
 
-        # Check ownership
-        chown ${ASTERISK_USER}:${ASTERISK_GROUP} "$CONFIG_FILE"
+        # Note: VICIdial runs as root, no need to change ownership
     fi
 }
 
@@ -235,6 +234,37 @@ test_installation() {
     fi
 }
 
+download_test_script() {
+    print_info "Downloading integration test script..."
+
+    TEST_SCRIPT="/tmp/test-did-optimizer.sh"
+    TEST_URL="https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/test-did-optimizer.sh"
+
+    if wget -q -O "$TEST_SCRIPT" "$TEST_URL" 2>/dev/null; then
+        chmod +x "$TEST_SCRIPT"
+        print_step "Test script downloaded to $TEST_SCRIPT"
+
+        echo ""
+        read -p "Would you like to run the integration test now? (y/n): " -n 1 -r
+        echo ""
+
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            print_info "Running integration test..."
+            echo ""
+            bash "$TEST_SCRIPT"
+            echo ""
+        else
+            print_info "You can run the test later with: bash $TEST_SCRIPT"
+        fi
+    else
+        print_warning "Failed to download test script"
+        print_info "You can download it manually:"
+        print_info "wget $TEST_URL"
+        print_info "bash test-did-optimizer.sh"
+    fi
+}
+
 print_next_steps() {
     echo -e "\n${GREEN}════════════════════════════════════════════════════════════════${NC}"
     echo -e "${GREEN}  Installation Complete!${NC}"
@@ -246,25 +276,27 @@ print_next_steps() {
         echo -e "1. ${YELLOW}Download dids.conf${NC}"
         echo -e "   - Log in to DID Optimizer web interface"
         echo -e "   - Go to Settings → VICIdial Integration"
-        echo -e "   - Click 'Download dids.conf'"
-        echo -e "   - Upload to: ${CONFIG_FILE}"
-        echo -e "   - Run: ${BLUE}sudo chmod 600 $CONFIG_FILE${NC}"
-        echo -e "   - Run: ${BLUE}sudo chown ${ASTERISK_USER}:${ASTERISK_GROUP} $CONFIG_FILE${NC}\n"
+        echo -e "   - Copy the configuration and paste into: ${CONFIG_FILE}"
+        echo -e "   - Run: ${BLUE}sudo chmod 600 $CONFIG_FILE${NC}\n"
     fi
 
-    echo -e "2. ${YELLOW}Configure Dialplan${NC}"
-    echo -e "   Add to /etc/asterisk/extensions.conf:\n"
-    echo -e "   ${BLUE}exten => _91NXXNXXXXXX,1,NoOp(Starting DID Optimizer for \${EXTEN})${NC}"
-    echo -e "   ${BLUE}exten => _91NXXNXXXXXX,n,Set(CUSTOMER_PHONE=\${EXTEN:1})${NC}"
+    echo -e "2. ${YELLOW}Configure Dialplan in VICIdial Admin${NC}"
+    echo -e "   ${RED}⚠️  DO NOT edit /etc/asterisk/extensions.conf directly!${NC}"
+    echo -e "   Instead, use VICIdial Admin interface:\n"
+    echo -e "   - Go to: ${BLUE}Admin → Carriers${NC}"
+    echo -e "   - Click on your outbound carrier"
+    echo -e "   - Scroll to ${BLUE}\"Dialplan Entry\"${NC} section"
+    echo -e "   - Add BEFORE your Dial() command:\n"
     echo -e "   ${BLUE}exten => _91NXXNXXXXXX,n,AGI(vicidial-did-optimizer.agi)${NC}"
-    echo -e "   ${BLUE}exten => _91NXXNXXXXXX,n,NoOp(Selected DID: \${OPTIMIZER_DID})${NC}"
-    echo -e "   ${BLUE}exten => _91NXXNXXXXXX,n,Set(CALLERID(num)=\${OPTIMIZER_DID})${NC}"
-    echo -e "   ${BLUE}exten => _91NXXNXXXXXX,n,Dial(SIP/gateway/\${EXTEN:1},60,tTo)${NC}\n"
+    echo -e "   ${BLUE}exten => _91NXXNXXXXXX,n,Set(CALLERID(num)=\${OPTIMIZER_DID})${NC}\n"
+    echo -e "   - Click ${BLUE}\"Submit\"${NC} to save\n"
 
-    echo -e "3. ${YELLOW}Reload Asterisk Dialplan${NC}"
-    echo -e "   ${BLUE}asterisk -rx \"dialplan reload\"${NC}\n"
+    echo -e "3. ${YELLOW}Test Integration${NC}"
+    echo -e "   Run automated test script:"
+    echo -e "   ${BLUE}wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/test-did-optimizer.sh${NC}"
+    echo -e "   ${BLUE}bash test-did-optimizer.sh${NC}\n"
 
-    echo -e "4. ${YELLOW}Test${NC}"
+    echo -e "4. ${YELLOW}Monitor${NC}"
     echo -e "   - Make a test call"
     echo -e "   - Monitor logs: ${BLUE}tail -f $LOG_DIR/did-optimizer.log${NC}"
     echo -e "   - Check DID Optimizer dashboard for call activity\n"
@@ -288,6 +320,7 @@ main() {
     create_log_directory
     verify_config
     test_installation
+    download_test_script
     print_next_steps
 }
 
