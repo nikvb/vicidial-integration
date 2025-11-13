@@ -88,7 +88,9 @@ check_config() {
     if [ ! -f "$CONFIG_FILE" ]; then
         print_warning "DID Optimizer config not found at $CONFIG_FILE"
         print_info "Please run the AGI installer first:"
-        print_info "  curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-agi.sh | sudo bash"
+        echo "  curl -fsSL \\"
+        echo "    https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-agi.sh \\"
+        echo "    | sudo bash"
         exit 1
     fi
 

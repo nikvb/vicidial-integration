@@ -392,7 +392,9 @@ PERL
         print_error "HTTPS NOT SUPPORTED - LWP::Protocol::https module is missing or not working"
         print_info "Error details:"
         echo "$test_output" | grep -v "^$"
-        print_info "Run this to fix: sudo cpanm --force Net::SSLeay IO::Socket::SSL LWP::Protocol::https"
+        print_info "Run this to fix:"
+        echo "  sudo cpanm --force Net::SSLeay IO::Socket::SSL \\"
+        echo "                     LWP::Protocol::https"
         return 1
     elif echo "$test_output" | grep -q "SSL"; then
         print_warning "SSL/Certificate issue detected"
@@ -438,8 +440,9 @@ download_test_script() {
     else
         print_warning "Failed to download test script"
         print_info "You can download it manually:"
-        print_info "wget $TEST_URL"
-        print_info "bash test-did-optimizer.sh"
+        echo "  wget \\"
+        echo "    $TEST_URL"
+        echo "  bash test-did-optimizer.sh"
     fi
 }
 
@@ -468,15 +471,17 @@ download_advanced_test_script() {
         else
             print_warning "Failed to download advanced test script"
             print_info "You can download it manually:"
-            print_info "wget -O test-did-optimizer-api.pl $API_TEST_URL"
-            print_info "chmod +x test-did-optimizer-api.pl"
-            print_info "./test-did-optimizer-api.pl --debug"
+            echo "  wget -O test-did-optimizer-api.pl \\"
+            echo "    $API_TEST_URL"
+            echo "  chmod +x test-did-optimizer-api.pl"
+            echo "  ./test-did-optimizer-api.pl --debug"
         fi
     else
         print_info "You can run the advanced test later:"
-        print_info "  wget -O test-did-optimizer-api.pl $API_TEST_URL"
-        print_info "  chmod +x test-did-optimizer-api.pl"
-        print_info "  ./test-did-optimizer-api.pl --debug"
+        echo "  wget -O test-did-optimizer-api.pl \\"
+        echo "    $API_TEST_URL"
+        echo "  chmod +x test-did-optimizer-api.pl"
+        echo "  ./test-did-optimizer-api.pl --debug"
     fi
 }
 
@@ -508,7 +513,8 @@ print_next_steps() {
 
     echo -e "3. ${YELLOW}Test Integration${NC}"
     echo -e "   Run automated test script:"
-    echo -e "   ${BLUE}wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/test-did-optimizer.sh${NC}"
+    echo -e "   ${BLUE}wget \\"
+    echo -e "     https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/test-did-optimizer.sh${NC}"
     echo -e "   ${BLUE}bash test-did-optimizer.sh${NC}\n"
 
     echo -e "4. ${YELLOW}Monitor${NC}"
