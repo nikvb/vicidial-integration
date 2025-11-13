@@ -145,7 +145,7 @@ if [ ! -d "$ASTERISK_DIR" ]; then
 fi
 
 # GitHub raw URL base
-GITHUB_BASE="https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration"
+GITHUB_BASE="https://raw.githubusercontent.com/nikvb/vicidial-integration/main"
 
 # Function to download file from GitHub
 download_from_github() {

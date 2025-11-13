@@ -7,10 +7,10 @@
 # call outcomes back to the DID Optimizer API for performance tracking and AI training.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/install-call-results-sync.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-call-results-sync.sh | sudo bash
 #
 # Or download and run:
-#   wget https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/install-call-results-sync.sh
+#   wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-call-results-sync.sh
 #   chmod +x install-call-results-sync.sh
 #   sudo ./install-call-results-sync.sh
 #
@@ -31,7 +31,7 @@ SCRIPT_NAME="AST_DID_optimizer_sync.pl"
 SCRIPT_PATH="$INSTALL_DIR/$SCRIPT_NAME"
 LOG_FILE="/var/log/astguiclient/did-optimizer-sync.log"
 LAST_CHECK_FILE="/tmp/did-optimizer-last-check.txt"
-REPO_BASE="https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration"
+REPO_BASE="https://raw.githubusercontent.com/nikvb/vicidial-integration/main"
 CONFIG_FILE="/etc/asterisk/dids.conf"
 
 ################################################################################
@@ -88,7 +88,7 @@ check_config() {
     if [ ! -f "$CONFIG_FILE" ]; then
         print_warning "DID Optimizer config not found at $CONFIG_FILE"
         print_info "Please run the AGI installer first:"
-        print_info "  curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/install-agi.sh | sudo bash"
+        print_info "  curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-agi.sh | sudo bash"
         exit 1
     fi
 

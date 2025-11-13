@@ -53,7 +53,7 @@ sudo yum install -y gcc make perl openssl openssl-devel
 Download and run the automated CPAN-based installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/scripts/install-centos7.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-centos7.sh | sudo bash
 ```
 
 This script will:
@@ -79,7 +79,7 @@ sudo yum install -y gcc make perl openssl openssl-devel
 
 ```bash
 cd /tmp
-wget https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/scripts/install-centos7.sh
+wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-centos7.sh
 chmod +x install-centos7.sh
 ```
 
@@ -157,14 +157,14 @@ perl -MLWP::UserAgent -e '
 After prerequisites are installed, run the main VICIdial integration installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/scripts/install-vicidial-integration-autodetect.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-vicidial-integration-autodetect.sh | sudo bash
 ```
 
 Or download and run manually:
 
 ```bash
 cd /tmp
-wget https://raw.githubusercontent.com/nikvb/vicidial-did-optimizer/main/vicidial-integration/scripts/install-vicidial-integration-autodetect.sh
+wget https://raw.githubusercontent.com/nikvb/vicidial-integration/main/scripts/install-vicidial-integration-autodetect.sh
 chmod +x install-vicidial-integration-autodetect.sh
 sudo ./install-vicidial-integration-autodetect.sh
 ```
