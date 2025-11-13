@@ -136,6 +136,40 @@ install_system_dependencies() {
         update-ca-certificates 2>/dev/null || true
     fi
 
+    # Verify critical packages are installed
+    print_info "Verifying critical packages..."
+
+    local critical_missing=0
+
+    # Check for compiler
+    if ! command -v gcc &> /dev/null; then
+        print_warning "gcc compiler not found"
+        ((critical_missing++))
+    fi
+
+    # Check for make
+    if ! command -v make &> /dev/null; then
+        print_warning "make not found"
+        ((critical_missing++))
+    fi
+
+    # Check for OpenSSL
+    if ! command -v openssl &> /dev/null; then
+        print_warning "openssl not found"
+        ((critical_missing++))
+    fi
+
+    # Check for openssl headers (needed for compiling)
+    if [ ! -f "/usr/include/openssl/ssl.h" ] && [ ! -f "/usr/local/include/openssl/ssl.h" ]; then
+        print_warning "openssl-devel headers not found - may need manual installation"
+    fi
+
+    if [ $critical_missing -gt 0 ]; then
+        print_warning "$critical_missing critical packages missing - Perl modules may fail to compile"
+    else
+        print_step "All critical system packages verified"
+    fi
+
     print_step "System dependencies installed"
 }
 
@@ -299,21 +333,47 @@ test_installation() {
         return 1
     fi
 
-    # Test HTTPS support
-    print_info "Testing HTTPS/SSL support..."
+    # Test each HTTPS module individually
+    print_info "Verifying HTTPS/SSL Perl modules..."
+
+    local https_modules=("Net::SSLeay" "IO::Socket::SSL" "Mozilla::CA" "LWP::Protocol::https")
+    local modules_ok=true
+
+    for module in "${https_modules[@]}"; do
+        if perl -M"$module" -e 'exit 0' 2>/dev/null; then
+            print_step "$module is loaded and working"
+        else
+            print_error "$module failed to load"
+            modules_ok=false
+        fi
+    done
+
+    if [ "$modules_ok" = false ]; then
+        print_error "Some HTTPS modules are not working - HTTPS will not work"
+        return 1
+    fi
+
+    # Test actual HTTPS connectivity to API
+    print_info "Testing HTTPS connectivity to DID Optimizer API..."
+
     local https_test=$(cat <<'PERL'
 use strict;
 use warnings;
 use LWP::UserAgent;
 
+print "Creating LWP::UserAgent...\n";
 my $ua = LWP::UserAgent->new(
     timeout => 10,
     ssl_opts => { verify_hostname => 1 }
 );
 
-my $response = $ua->get('https://dids.amdy.io/api/v1/health');
+print "Attempting HTTPS connection to https://dids.amdy.io...\n";
+my $response = $ua->get('https://dids.amdy.io/api/v1/dids/next?campaign_id=TEST&agent_id=1001&customer_phone=5551234567&customer_state=CA');
 
-if ($response->is_success || $response->code == 401 || $response->code == 404) {
+print "Response code: " . $response->code . "\n";
+print "Response message: " . $response->message . "\n";
+
+if ($response->is_success || $response->code == 401) {
     print "HTTPS_OK\n";
     exit 0;
 } else {
@@ -323,20 +383,29 @@ if ($response->is_success || $response->code == 401 || $response->code == 404) {
 PERL
 )
 
-    if echo "$https_test" | perl 2>&1 | grep -q "HTTPS_OK"; then
-        print_step "HTTPS support is working correctly"
+    local test_output=$(echo "$https_test" | perl 2>&1)
+
+    if echo "$test_output" | grep -q "HTTPS_OK"; then
+        print_step "HTTPS connectivity to API confirmed - all systems operational"
+        print_info "API responded successfully to HTTPS request"
+    elif echo "$test_output" | grep -q "Protocol scheme 'https' is not supported"; then
+        print_error "HTTPS NOT SUPPORTED - LWP::Protocol::https module is missing or not working"
+        print_info "Error details:"
+        echo "$test_output" | grep -v "^$"
+        print_info "Run this to fix: sudo cpanm --force Net::SSLeay IO::Socket::SSL LWP::Protocol::https"
+        return 1
+    elif echo "$test_output" | grep -q "SSL"; then
+        print_warning "SSL/Certificate issue detected"
+        print_info "This may be normal. Check if the API endpoint is accessible."
+        echo "$test_output" | grep -v "^$"
+    elif echo "$test_output" | grep -q "401\|404"; then
+        print_step "HTTPS connectivity working (got expected HTTP error code)"
+        print_info "API is accessible via HTTPS - authentication would be needed for actual calls"
     else
-        local error_msg=$(echo "$https_test" | perl 2>&1)
-        if echo "$error_msg" | grep -q "Protocol scheme 'https' is not supported"; then
-            print_error "HTTPS not supported - missing LWP::Protocol::https module"
-            print_info "This should have been installed. Please check the error messages above."
-            return 1
-        elif echo "$error_msg" | grep -q "SSL"; then
-            print_warning "SSL verification issue - may be normal for self-signed certificates"
-        else
-            print_warning "HTTPS test inconclusive: $error_msg"
-            print_info "This may be normal if the API requires authentication"
-        fi
+        print_warning "HTTPS test completed with unexpected result"
+        print_info "Details:"
+        echo "$test_output" | grep -v "^$"
+        print_info "This may still work - try running the AGI script with a real call"
     fi
 }
 
